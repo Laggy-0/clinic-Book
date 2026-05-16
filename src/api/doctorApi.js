@@ -10,11 +10,9 @@ export const updateDoctorProfile = async (doctorId, data) => {
   return response.data;
 };
 
-// --- NEW SEARCH & PROFILE FUNCTIONS ---
 export const searchDoctors = async (filters) => {
   const params = new URLSearchParams();
 
-  // Passing exact parameters for the backend to handle ranges (e.g., Op.gte)
   if (filters.name) params.append("name", filters.name);
   if (filters.specialty) params.append("specialty", filters.specialty);
   if (filters.date) params.append("date", filters.date);

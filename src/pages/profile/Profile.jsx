@@ -1,358 +1,235 @@
 import { useState, useRef, useEffect } from "react";
 import Navbar from './../../components/navbar/Navbar';
+import ScrollAnimation from "../../components/ScrollAnimation";
 import toast from "react-hot-toast";
 import { getMe, updateUserProfile, uploadAvatar, removeAvatar } from "../../api/userApi";
 import { getDoctorEarnings, updateDoctorProfile } from "../../api/doctorApi";
-import { getSpecialties } from "../../api/specialtyApi";
 import { getDoctorSlots, createSlot, deleteSlot } from "../../api/slotApi";
 
 export default function Profile() {
-  const [user, setUser] = useState(JSON.parse(localStorage.getItem("user") || "{}"));
-  const role = user?.role || "patient";
-  const doctorId = user?.doctorProfile?.id;
-
-  // Global State
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const fileInputRef = useRef(null);
-  const [avatarPreview, setAvatarPreview] = useState(user.profile_picture || null);
-  
-  // Form State
-  const [formData, setFormData] = useState({ 
-    name: user.name || "", 
-    email: user.email || "",
-    bio: user?.doctorProfile?.bio || "",
-    specialty_id: user?.doctorProfile?.specialty_id || "",
-    qualifications: user?.doctorProfile?.qualifications || "",
-    location: user?.doctorProfile?.location || "",
-    consultation_fee: user?.doctorProfile?.consultation_fee || ""
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const [stats, setStats] = useState({});
+  const [slots, setSlots] = useState([]);
+  const [newSlot, setNewSlot] = useState({ date: "", start_time: "", end_time: "" });
+  const fileRef = useRef(null);
+
+  const [formData, setFormData] = useState({
+    name: "", email: "", phone: "", bio: "", location: "",
+    consultation_fee: "", qualifications: "",
   });
 
-  // Doctor Specific State
-  const [stats, setStats] = useState({ appointments_count: 0, total_earnings: 0, avg_rating: "0.0", reviews_count: 0 });
-  const [specialties, setSpecialties] = useState([]);
-  const [slots, setSlots] = useState([]);
-  const [newSlot, setNewSlot] = useState({ date: "", startTime: "", endTime: "" });
+  const role = user?.role || "patient";
+  const doctorProfile = user?.doctorProfile;
 
-  // --- INITIAL DATA FETCH ---
   useEffect(() => {
-    const fetchAllData = async () => {
+    (async () => {
       try {
-        const userData = await getMe();
-        setUser(userData.user);
-        setAvatarPreview(userData.user.profile_picture);
-        setFormData(prev => ({
-          ...prev,
-          name: userData.user.name,
-          email: userData.user.email,
-          ...(userData.user.role === 'doctor' && userData.user.doctorProfile ? {
-            bio: userData.user.doctorProfile.bio || "",
-            specialty_id: userData.user.doctorProfile.specialty_id || "",
-            qualifications: userData.user.doctorProfile.qualifications || "",
-            location: userData.user.doctorProfile.location || "",
-            consultation_fee: userData.user.doctorProfile.consultation_fee || ""
-          } : {})
-        }));
-        localStorage.setItem("user", JSON.stringify(userData.user));
-
-        if (userData.user.role === "doctor" && userData.user.doctorProfile?.id) {
-          const docId = userData.user.doctorProfile.id;
-          const [earningsData, specialtiesData, slotsData] = await Promise.all([
-            getDoctorEarnings(docId).catch(() => ({})),
-            getSpecialties().catch(() => ({ specialties: [] })),
-            getDoctorSlots(docId).catch(() => ({ slots: [] }))
+        const data = await getMe();
+        const u = data.user || data;
+        setUser(u);
+        setAvatarPreview(u.profile_picture || null);
+        setFormData({
+          name: u.name || "", email: u.email || "", phone: u.phone || "",
+          bio: u.doctorProfile?.bio || "", location: u.doctorProfile?.location || "",
+          consultation_fee: u.doctorProfile?.consultation_fee || "",
+          qualifications: u.doctorProfile?.qualifications || "",
+        });
+        if (u.role === "doctor" && u.doctorProfile?.id) {
+          const [earn, sl] = await Promise.all([
+            getDoctorEarnings(u.doctorProfile.id).catch(() => ({})),
+            getDoctorSlots(u.doctorProfile.id).catch(() => []),
           ]);
-          
-          setStats(prev => ({ ...prev, ...earningsData }));
-          setSpecialties(specialtiesData.specialties || specialtiesData || []);
-          setSlots(slotsData.slots || slotsData || []);
+          setStats(earn);
+          setSlots(sl.slots || sl || []);
         }
-      } catch (error) {
-        console.error("Failed to load profile data", error);
-        toast.error("Failed to load some profile data.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAllData();
+      } catch { toast.error("فشل تحميل الملف الشخصي"); }
+      finally { setLoading(false); }
+    })();
   }, []);
 
-  // --- HANDLERS ---
-  const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const handleInputChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  const saveChanges = async () => {
-    const toastId = toast.loading("Saving changes...");
+  const handleSave = async () => {
+    const toastId = toast.loading("جاري الحفظ...");
     try {
-      const userUpdateRes = await updateUserProfile(user.id, { name: formData.name, email: formData.email });
-      let updatedUser = { ...user, ...userUpdateRes.user };
-
-      if (role === "doctor" && doctorId) {
-        const docUpdateRes = await updateDoctorProfile(doctorId, {
-          bio: formData.bio,
-          specialty_id: formData.specialty_id === "" ? null : parseInt(formData.specialty_id, 10),
-          qualifications: formData.qualifications,
-          location: formData.location,
-          consultation_fee: formData.consultation_fee === "" ? null : parseFloat(formData.consultation_fee)
+      await updateUserProfile(user.id, { name: formData.name, phone: formData.phone });
+      if (role === "doctor" && doctorProfile?.id) {
+        await updateDoctorProfile(doctorProfile.id, {
+          bio: formData.bio, location: formData.location,
+          consultation_fee: formData.consultation_fee, qualifications: formData.qualifications,
         });
-        updatedUser.doctorProfile = { ...updatedUser.doctorProfile, ...docUpdateRes.doctorProfile };
       }
-
-      setUser(updatedUser);
-      localStorage.setItem("user", JSON.stringify(updatedUser));
+      const fresh = await getMe();
+      const u = fresh.user || fresh;
+      setUser(u);
+      localStorage.setItem("user", JSON.stringify(u));
       setIsEditing(false);
-      toast.success("Profile updated successfully!", { id: toastId });
-    } catch (error) {
-      toast.error("Failed to update profile", { id: toastId });
-    }
+      toast.success("تم حفظ التغييرات!", { id: toastId });
+    } catch (err) { toast.error(err.response?.data?.message || "فشل الحفظ", { id: toastId }); }
   };
 
-  const handleImageUpload = async (event) => {
-    const file = event.target.files[0];
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files[0];
     if (!file) return;
-
-    const data = new FormData();
-    data.append("image", file);
-    const toastId = toast.loading("Uploading avatar...");
+    const toastId = toast.loading("جاري رفع الصورة...");
     try {
-      const response = await uploadAvatar(user.id, data);
-      const updatedUser = { ...user, profile_picture: response.profile_picture_url };
-      setUser(updatedUser);
-      setAvatarPreview(response.profile_picture_url);
-      localStorage.setItem("user", JSON.stringify(updatedUser));
-      toast.success("Avatar updated!", { id: toastId });
-    } catch (error) {
-      toast.error("Failed to upload avatar", { id: toastId });
-    }
+      const data = await uploadAvatar(user.id, file);
+      setAvatarPreview(data.profile_picture_url || URL.createObjectURL(file));
+      const fresh = await getMe();
+      setUser(fresh.user || fresh);
+      localStorage.setItem("user", JSON.stringify(fresh.user || fresh));
+      toast.success("تم تحديث الصورة!", { id: toastId });
+    } catch { toast.error("فشل رفع الصورة", { id: toastId }); }
   };
 
-  const handleRemoveAvatar = async () => {
-    const toastId = toast.loading("Removing avatar...");
+  const handleAvatarRemove = async () => {
+    const toastId = toast.loading("جاري حذف الصورة...");
     try {
       await removeAvatar(user.id);
-      const updatedUser = { ...user, profile_picture: null };
-      setUser(updatedUser);
-      setAvatarPreview(null); 
-      localStorage.setItem("user", JSON.stringify(updatedUser));
-      toast.success("Avatar removed!", { id: toastId });
-    } catch (error) {
-      toast.error("Failed to remove avatar", { id: toastId });
-    }
+      setAvatarPreview(null);
+      const fresh = await getMe();
+      setUser(fresh.user || fresh);
+      localStorage.setItem("user", JSON.stringify(fresh.user || fresh));
+      toast.success("تم حذف الصورة", { id: toastId });
+    } catch { toast.error("فشل حذف الصورة", { id: toastId }); }
   };
 
-  // --- SLOT HANDLERS ---
-const handleAddSlot = async (e) => {
+  const handleAddSlot = async (e) => {
     e.preventDefault();
-    if (!newSlot.date || !newSlot.startTime || !newSlot.endTime) return toast.error("Please fill all slot fields");
-    
-    const toastId = toast.loading("Adding slot...");
+    if (!newSlot.date || !newSlot.start_time || !newSlot.end_time) return toast.error("جميع الحقول مطلوبة");
+    const toastId = toast.loading("جاري الإضافة...");
     try {
-      const payload = {
-        date: newSlot.date,
-        start_time: newSlot.startTime.substring(0, 5), // Forces exact HH:MM
-        end_time: newSlot.endTime.substring(0, 5)      // Forces exact HH:MM
-      };
-
-      const addedSlot = await createSlot(payload);
-      
-      setSlots([...slots, addedSlot.slot || addedSlot]);
-      setNewSlot({ date: "", startTime: "", endTime: "" });
-      toast.success("Slot added!", { id: toastId });
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to add slot", { id: toastId });
-      console.error(error);
-    }
+      await createSlot({ ...newSlot, doctor_id: doctorProfile.id });
+      const sl = await getDoctorSlots(doctorProfile.id);
+      setSlots(sl.slots || sl || []);
+      setNewSlot({ date: "", start_time: "", end_time: "" });
+      toast.success("تمت إضافة الموعد!", { id: toastId });
+    } catch (err) { toast.error(err.response?.data?.message || "فشل الإضافة", { id: toastId }); }
   };
 
   const handleDeleteSlot = async (slotId) => {
-    const toastId = toast.loading("Deleting slot...");
+    if (!window.confirm("حذف هذا الموعد؟")) return;
     try {
       await deleteSlot(slotId);
       setSlots(slots.filter(s => s.id !== slotId));
-      toast.success("Slot deleted!", { id: toastId });
-    } catch (error) {
-      toast.error("Failed to delete slot", { id: toastId });
-    }
+      toast.success("تم حذف الموعد");
+    } catch { toast.error("فشل الحذف"); }
   };
+
+  const roleCharImg = role === "admin" ? "/admin-char.png" : role === "doctor" ? "/doctor-char.png" : "/patient-char.png";
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-slate-50 pb-20">
       <Navbar />
-
       <div className="max-w-4xl mx-auto p-6 md:p-8 space-y-8">
-        
-        {/* --- 1. HEADER & AVATAR SECTION --- */}
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row items-center gap-8">
+
+        <ScrollAnimation variant="fade-up">
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row items-center gap-8 hover:shadow-md transition-shadow">
           <div className="w-32 h-32 rounded-full bg-blue-100 flex items-center justify-center text-blue-500 font-bold text-4xl overflow-hidden border-4 border-blue-50 shrink-0">
             {avatarPreview ? (
-              <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+              <img src={avatarPreview} alt="الصورة" className="w-full h-full object-cover" />
             ) : (
-              user?.name?.charAt(0).toUpperCase()
+              <img src={roleCharImg} alt="الصورة" className="w-full h-full object-cover" />
             )}
           </div>
-          
-          <div className="flex-1 text-center md:text-left">
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">{user.name}</h1>
-            <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${role === 'doctor' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
-              {role} Account
-            </span>
-            
-            <div className="mt-6 flex flex-wrap justify-center md:justify-start gap-3">
-              <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleImageUpload} />
-              <button onClick={() => fileInputRef.current.click()} className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-200 transition text-sm">
-                Change Avatar
-              </button>
-              {avatarPreview && (
-                <button onClick={handleRemoveAvatar} className="bg-red-50 text-red-600 px-4 py-2 rounded-lg font-medium hover:bg-red-100 transition text-sm">
-                  Remove Avatar
-                </button>
-              )}
+          <div className="flex-1 text-center md:text-right">
+            <h1 className="text-2xl font-bold text-gray-800">{user?.name}</h1>
+            <p className="text-gray-500 text-sm">{user?.email}</p>
+            <p className="text-blue-600 text-xs font-bold mt-1 uppercase">{role === "doctor" ? "طبيب" : role === "admin" ? "مشرف" : "مريض"}</p>
+            <div className="flex gap-3 mt-4 justify-center md:justify-start">
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+              <button onClick={() => fileRef.current?.click()} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition cursor-pointer">رفع صورة</button>
+              {avatarPreview && <button onClick={handleAvatarRemove} className="bg-red-50 text-red-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-100 transition cursor-pointer">حذف الصورة</button>}
             </div>
           </div>
         </div>
+        </ScrollAnimation>
 
-        {/* --- 2. DOCTOR STATISTICS --- */}
         {role === "doctor" && (
+          <ScrollAnimation variant="fade-up" delay={100}>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 text-center">
-              <p className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Rating</p>
-              <p className="text-2xl font-black text-gray-800 flex items-center justify-center gap-1">
-                {parseFloat(stats.avg_rating || 0).toFixed(1)} <span className="text-yellow-400 text-lg">★</span>
-              </p>
-            </div>
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 text-center">
-              <p className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Appointments</p>
-              <p className="text-2xl font-black text-gray-800">{stats.appointments_count || 0}</p>
-            </div>
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 text-center">
-              <p className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Earnings</p>
-              <p className="text-2xl font-black text-green-600">${stats.total_earnings || 0}</p>
-            </div>
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 text-center">
-              <p className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Reviews</p>
-              <p className="text-2xl font-black text-gray-800">{stats.reviews_count || 0}</p>
-            </div>
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 text-center"><p className="text-gray-400 text-xs font-bold mb-1">التقييم</p><p className="text-2xl font-black text-yellow-500">{parseFloat(doctorProfile?.avg_rating || 0).toFixed(1)} ★</p></div>
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 text-center"><p className="text-gray-400 text-xs font-bold mb-1">المواعيد</p><p className="text-2xl font-black text-gray-800">{stats.appointments_count || 0}</p></div>
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 text-center"><p className="text-gray-400 text-xs font-bold mb-1">الأرباح</p><p className="text-2xl font-black text-green-600">${stats.total_earnings || 0}</p></div>
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 text-center"><p className="text-gray-400 text-xs font-bold mb-1">المراجعات</p><p className="text-2xl font-black text-gray-800">{stats.reviews_count || 0}</p></div>
           </div>
+          </ScrollAnimation>
         )}
 
-        {/* --- 3. PROFILE DETAILS FORM --- */}
+        <ScrollAnimation variant="fade-up" delay={200}>
         <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
           <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
-            <h2 className="text-xl font-bold text-gray-800">Profile Details</h2>
-            <button 
-              onClick={() => isEditing ? saveChanges() : setIsEditing(true)}
-              className={`px-5 py-2 rounded-lg font-medium transition ${isEditing ? "bg-emerald-500 text-white hover:bg-emerald-600 shadow-md shadow-emerald-200" : "bg-blue-50 text-blue-600 hover:bg-blue-100"}`}
-            >
-              {isEditing ? "Save All Changes" : "Edit Details"}
-            </button>
+            <h2 className="text-xl font-bold text-gray-800">تفاصيل الملف الشخصي</h2>
+            {!isEditing ? (
+              <button onClick={() => setIsEditing(true)} className="text-blue-600 font-bold text-sm hover:underline cursor-pointer">تعديل</button>
+            ) : (
+              <div className="flex gap-2">
+                <button onClick={() => setIsEditing(false)} className="text-gray-500 font-bold text-sm hover:underline cursor-pointer">إلغاء</button>
+                <button onClick={handleSave} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 cursor-pointer">حفظ</button>
+              </div>
+            )}
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Full Name</label>
-              <input type="text" name="name" value={formData.name} onChange={handleInputChange} disabled={!isEditing} className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-lg outline-none disabled:text-gray-500 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Email Address</label>
-              <input type="email" name="email" value={formData.email} onChange={handleInputChange} disabled={!isEditing} className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-lg outline-none disabled:text-gray-500 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition" />
-            </div>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div><label className="block text-sm font-medium text-gray-500 mb-1">الاسم</label>
+              <input type="text" name="name" value={formData.name} onChange={handleInputChange} disabled={!isEditing} className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-lg outline-none disabled:text-gray-500 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition" /></div>
+            <div><label className="block text-sm font-medium text-gray-500 mb-1">البريد الإلكتروني</label>
+              <input type="email" name="email" value={formData.email} disabled className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-lg outline-none text-gray-500 cursor-not-allowed" /></div>
+            <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-500 mb-1">رقم الهاتف</label>
+              <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} disabled={!isEditing} className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-lg outline-none disabled:text-gray-500 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition" placeholder="أدخل رقم هاتفك" /></div>
             {role === "doctor" && (
               <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Specialty</label>
-                  <select name="specialty_id" value={formData.specialty_id} onChange={handleInputChange} disabled={!isEditing} className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-lg outline-none disabled:text-gray-500 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition">
-                    <option value="" disabled>Select a specialty</option>
-                    {specialties.map(spec => (
-                      <option key={spec.id} value={spec.id}>{spec.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Consultation Fee ($)</label>
-                  <input type="number" step="0.01" name="consultation_fee" value={formData.consultation_fee} onChange={handleInputChange} disabled={!isEditing} className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-lg outline-none disabled:text-gray-500 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition" placeholder="e.g. 50.00" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Location / Clinic</label>
-                  <input type="text" name="location" value={formData.location} onChange={handleInputChange} disabled={!isEditing} className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-lg outline-none disabled:text-gray-500 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition" placeholder="Clinic Address or 'Online'" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Qualifications</label>
-                  <input type="text" name="qualifications" value={formData.qualifications} onChange={handleInputChange} disabled={!isEditing} className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-lg outline-none disabled:text-gray-500 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition" placeholder="MD, PhD, etc." />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Professional Bio</label>
-                  <textarea name="bio" value={formData.bio} onChange={handleInputChange} disabled={!isEditing} rows="3" className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-lg outline-none disabled:text-gray-500 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition" placeholder="Tell patients about your experience..."></textarea>
-                </div>
+                <div><label className="block text-sm font-medium text-gray-500 mb-1">رسوم الاستشارة ($)</label>
+                  <input type="number" name="consultation_fee" value={formData.consultation_fee} onChange={handleInputChange} disabled={!isEditing} className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-lg outline-none disabled:text-gray-500 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition" /></div>
+                <div><label className="block text-sm font-medium text-gray-500 mb-1">الموقع</label>
+                  <input type="text" name="location" value={formData.location} onChange={handleInputChange} disabled={!isEditing} className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-lg outline-none disabled:text-gray-500 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition" placeholder="عنوان العيادة" /></div>
+                <div><label className="block text-sm font-medium text-gray-500 mb-1">المؤهلات</label>
+                  <input type="text" name="qualifications" value={formData.qualifications} onChange={handleInputChange} disabled={!isEditing} className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-lg outline-none disabled:text-gray-500 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition" placeholder="دكتوراه، ماجستير..." /></div>
+                <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-500 mb-1">نبذة مهنية</label>
+                  <textarea name="bio" value={formData.bio} onChange={handleInputChange} disabled={!isEditing} rows="3" className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-lg outline-none disabled:text-gray-500 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition" placeholder="أخبر المرضى عن خبراتك..."></textarea></div>
               </>
             )}
           </div>
         </div>
+        </ScrollAnimation>
 
-        {/* --- 4. AVAILABILITY SLOTS --- */}
         {role === "doctor" && (
+          <ScrollAnimation variant="fade-up" delay={300}>
           <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-            <h2 className="text-xl font-bold text-gray-800 mb-6 pb-4 border-b border-gray-100">Manage Availability Slots</h2>
-            
-            <form onSubmit={handleAddSlot} className="flex flex-col md:flex-row gap-4 mb-8 bg-gray-50 p-4 rounded-xl border border-gray-100">
-              <div className="flex-1">
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Date</label>
-                <input type="date" value={newSlot.date} onChange={e => setNewSlot({...newSlot, date: e.target.value})} className="w-full border border-gray-200 px-3 py-2 rounded-lg outline-none focus:border-blue-400" required/>
-              </div>
-              <div className="flex-1">
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Start Time</label>
-                <input type="time" value={newSlot.startTime} onChange={e => setNewSlot({...newSlot, startTime: e.target.value})} className="w-full border border-gray-200 px-3 py-2 rounded-lg outline-none focus:border-blue-400" required/>
-              </div>
-              <div className="flex-1">
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">End Time</label>
-                <input type="time" value={newSlot.endTime} onChange={e => setNewSlot({...newSlot, endTime: e.target.value})} className="w-full border border-gray-200 px-3 py-2 rounded-lg outline-none focus:border-blue-400" required/>
-              </div>
-              <div className="flex items-end">
-                <button type="submit" className="w-full md:w-auto bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 transition h-[42px]">
-                  Add Slot
-                </button>
-              </div>
+            <h2 className="text-xl font-bold text-gray-800 mb-6 pb-4 border-b border-gray-100">إدارة أوقات المواعيد</h2>
+
+            <form onSubmit={handleAddSlot} className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-6">
+              <input type="date" value={newSlot.date} onChange={(e) => setNewSlot({ ...newSlot, date: e.target.value })}
+                className="border border-gray-200 px-4 py-3 rounded-xl text-sm bg-gray-50 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
+              <input type="time" value={newSlot.start_time} onChange={(e) => setNewSlot({ ...newSlot, start_time: e.target.value })}
+                className="border border-gray-200 px-4 py-3 rounded-xl text-sm bg-gray-50 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
+              <input type="time" value={newSlot.end_time} onChange={(e) => setNewSlot({ ...newSlot, end_time: e.target.value })}
+                className="border border-gray-200 px-4 py-3 rounded-xl text-sm bg-gray-50 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
+              <button type="submit" className="bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition cursor-pointer">+ إضافة موعد</button>
             </form>
 
             {slots.length === 0 ? (
-              <p className="text-center text-gray-500 py-6 border border-dashed border-gray-200 rounded-xl">No slots added yet. Create your schedule above.</p>
+              <p className="text-gray-400 text-sm italic">لا توجد أوقات مواعيد. أضف أول موعد أعلاه!</p>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                 {slots.map(slot => (
-                  <div key={slot.id} className={`p-4 rounded-xl border flex justify-between items-center ${slot.is_booked ? 'bg-red-50 border-red-100' : 'bg-white border-gray-200'}`}>
+                  <div key={slot.id} className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex justify-between items-center">
                     <div>
-                      <p className="font-bold text-gray-800 text-sm">{new Date(slot.date).toLocaleDateString()}</p>
-                      <p className="text-gray-500 text-xs">{slot.startTime || slot.start_time} - {slot.endTime || slot.end_time}</p>
-                      <span className={`text-[10px] font-bold uppercase tracking-wider mt-1 block ${slot.is_booked ? 'text-red-500' : 'text-emerald-500'}`}>
-                        {slot.is_booked ? 'Booked' : 'Available'}
-                      </span>
+                      <p className="text-sm font-bold text-gray-800">{new Date(slot.date).toLocaleDateString("ar-EG", {weekday:'short', month:'short', day:'numeric'})}</p>
+                      <p className="text-xs text-gray-500">{slot.start_time?.substring(0, 5)} — {slot.end_time?.substring(0, 5)}</p>
                     </div>
-                    {!slot.is_booked && (
-                      <button onClick={() => handleDeleteSlot(slot.id)} className="text-gray-400 hover:text-red-500 p-2 transition" title="Delete Slot">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                      </button>
-                    )}
+                    <button onClick={() => handleDeleteSlot(slot.id)} className="text-red-500 hover:text-red-700 font-bold text-sm cursor-pointer">حذف</button>
                   </div>
                 ))}
               </div>
             )}
           </div>
+          </ScrollAnimation>
         )}
-
-        {/* --- 5. SECURITY SECTION --- */}
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Security Settings</h2>
-          <p className="text-gray-500 text-sm mb-4">If you need to update your password, request a secure link to your registered email.</p>
-          <button 
-            onClick={() => toast.success("Password reset link sent to your email!", { icon: '📧' })}
-            className="bg-gray-100 text-gray-700 px-5 py-3 rounded-lg font-medium hover:bg-gray-200 transition"
-          >
-            Request Password Reset
-          </button>
-        </div>
 
       </div>
     </div>

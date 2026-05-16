@@ -15,19 +15,19 @@ export default function Register() {
       role: "patient",
     },
     validationSchema: Yup.object({
-      name: Yup.string().required("Full Name is required"),
+      name: Yup.string().required("الاسم الكامل مطلوب"),
       email: Yup.string()
-        .email("Invalid email address")
-        .required("Email is required"),
+        .email("البريد الإلكتروني غير صالح")
+        .required("البريد الإلكتروني مطلوب"),
       password: Yup.string()
-        .min(6, "Password must be at least 6 characters")
-        .required("Password is required"),
+        .min(6, "كلمة المرور يجب أن تكون 6 أحرف على الأقل")
+        .required("كلمة المرور مطلوبة"),
       role: Yup.string()
-        .oneOf(["patient", "doctor"], "Invalid role selected")
-        .required("Account type is required"),
+        .oneOf(["patient", "doctor"], "نوع الحساب غير صالح")
+        .required("نوع الحساب مطلوب"),
     }),
     onSubmit: async (values, { setSubmitting }) => {
-      const toastId = toast.loading("Creating account...");
+      const toastId = toast.loading("جارٍ إنشاء الحساب...");
 
       try {
         const data = await registerApi(values);
@@ -35,11 +35,10 @@ export default function Register() {
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
 
-        toast.success(data.message || "Registration successful", {
+        toast.success(data.message || "تم التسجيل بنجاح", {
           id: toastId,
         });
 
-        // Dynamic redirect based on the registered role
         setTimeout(() => {
           if (data.user.role === "doctor") {
             navigate("/doctor-dashboard");
@@ -52,7 +51,7 @@ export default function Register() {
           error.response?.data?.message ||
             error.response?.data?.error ||
             error.message ||
-            "Registration failed",
+            "فشل التسجيل",
           {
             id: toastId,
           }
@@ -67,20 +66,19 @@ export default function Register() {
     <div className="h-full flex items-center justify-center px-10">
       <div className="w-full max-w-md">
         <h2 className="text-4xl font-bold text-center text-blue-600 mb-3">
-          Create Account
+          إنشاء حساب
         </h2>
 
         <p className="text-center text-gray-500 mb-8">
-          Create your healthcare account
+          أنشئ حسابك في المنصة الصحية
         </p>
 
         <form onSubmit={formik.handleSubmit} className="space-y-5">
-          {/* Full Name Field */}
           <div>
             <input
               type="text"
               name="name"
-              placeholder="Full Name"
+              placeholder="الاسم الكامل"
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
               value={formik.values.name}
@@ -97,12 +95,11 @@ export default function Register() {
             ) : null}
           </div>
 
-          {/* Email Field */}
           <div>
             <input
               type="email"
               name="email"
-              placeholder="Email"
+              placeholder="البريد الإلكتروني"
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
               value={formik.values.email}
@@ -119,12 +116,11 @@ export default function Register() {
             ) : null}
           </div>
 
-          {/* Password Field */}
           <div>
             <input
               type="password"
               name="password"
-              placeholder="Password"
+              placeholder="كلمة المرور"
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
               value={formik.values.password}
@@ -141,7 +137,6 @@ export default function Register() {
             ) : null}
           </div>
 
-          {/* Role Selection Field */}
           <div>
             <select
               name="role"
@@ -154,8 +149,8 @@ export default function Register() {
                   : "border-blue-100"
               }`}
             >
-              <option value="patient">Patient</option>
-              <option value="doctor">Doctor</option>
+              <option value="patient">مريض</option>
+              <option value="doctor">طبيب</option>
             </select>
             {formik.touched.role && formik.errors.role ? (
               <div className="text-red-500 text-sm mt-1">
@@ -164,13 +159,12 @@ export default function Register() {
             ) : null}
           </div>
 
-          {/* Submit Button */}
           <button
             type="submit"
             disabled={formik.isSubmitting}
             className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition cursor-pointer disabled:bg-blue-300"
           >
-            {formik.isSubmitting ? "Creating..." : "Register"}
+            {formik.isSubmitting ? "جارٍ الإنشاء..." : "تسجيل"}
           </button>
         </form>
       </div>

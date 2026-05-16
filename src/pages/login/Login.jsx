@@ -7,42 +7,39 @@ import { loginApi } from "../../api/authApi";
 export default function Login() {
   const navigate = useNavigate();
 
-  // Formik setup
   const formik = useFormik({
     initialValues: {
       email: "",
       password: "",
     },
-    // Yup Validation Schema
+
     validationSchema: Yup.object({
-      email: Yup.string().email("Invalid email address").required("Email is required"),
-      password: Yup.string().min(6, "Password must be at least 6 characters").required("Password is required"),
+      email: Yup.string().email("البريد الإلكتروني غير صالح").required("البريد الإلكتروني مطلوب"),
+      password: Yup.string().min(6, "كلمة المرور يجب أن تكون 6 أحرف على الأقل").required("كلمة المرور مطلوبة"),
     }),
     onSubmit: async (values, { setSubmitting }) => {
-      const toastId = toast.loading("Logging in...");
+      const toastId = toast.loading("جارٍ تسجيل الدخول...");
 
       try {
         const data = await loginApi(values);
 
-        // Save Auth state
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
 
-        toast.success(data.message || "Login successful", { id: toastId });
+        toast.success(data.message || "تم تسجيل الدخول بنجاح", { id: toastId });
 
-        // Role-based routing
         setTimeout(() => {
           if (data.user.role === "doctor") {
-            navigate("/doctor-dashboard"); // Make sure to add this route to App.jsx!
+            navigate("/doctor-dashboard");
           } else if (data.user.role === "admin") {
-            navigate("/admin-dashboard");
+            navigate("/admin");
           } else {
             navigate("/patient-dashboard");
           }
         }, 800);
       } catch (error) {
         toast.error(
-          error.response?.data?.message || error.message || "Login failed",
+          error.response?.data?.message || error.message || "فشل تسجيل الدخول",
           { id: toastId }
         );
       } finally {
@@ -55,10 +52,10 @@ export default function Login() {
     <div className="h-full flex items-center justify-center px-10">
       <div className="w-full max-w-md">
         <h2 className="text-4xl font-bold text-center text-blue-600 mb-3">
-          Welcome Back
+          أهلاً بعودتك
         </h2>
         <p className="text-center text-gray-500 mb-8">
-          Login to continue to your dashboard
+          سجّل دخولك للمتابعة إلى لوحة التحكم
         </p>
 
         <form onSubmit={formik.handleSubmit} className="space-y-5">
@@ -66,7 +63,7 @@ export default function Login() {
             <input
               type="email"
               name="email"
-              placeholder="Email"
+              placeholder="البريد الإلكتروني"
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
               value={formik.values.email}
@@ -74,7 +71,6 @@ export default function Login() {
                 formik.touched.email && formik.errors.email ? "border-red-500" : "border-blue-100"
               }`}
             />
-            {/* Error Message Display */}
             {formik.touched.email && formik.errors.email ? (
               <div className="text-red-500 text-sm mt-1">{formik.errors.email}</div>
             ) : null}
@@ -84,7 +80,7 @@ export default function Login() {
             <input
               type="password"
               name="password"
-              placeholder="Password"
+              placeholder="كلمة المرور"
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
               value={formik.values.password}
@@ -102,7 +98,7 @@ export default function Login() {
             disabled={formik.isSubmitting}
             className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition cursor-pointer disabled:bg-blue-300"
           >
-            {formik.isSubmitting ? "Logging in..." : "Login"}
+            {formik.isSubmitting ? "جارٍ الدخول..." : "تسجيل الدخول"}
           </button>
         </form>
       </div>

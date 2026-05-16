@@ -10,7 +10,9 @@ export const updateUserProfile = async (id, data) => {
   return response.data;
 };
 
-export const uploadAvatar = async (id, formData) => {
+export const uploadAvatar = async (id, file) => {
+  const formData = new FormData();
+  formData.append("image", file);
   const response = await axiosInstance.post(`/api/users/${id}/avatar`, formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
@@ -18,7 +20,6 @@ export const uploadAvatar = async (id, formData) => {
 };
 
 export const removeAvatar = async (id) => {
-  // Uses the DELETE method to remove the avatar resource
   const response = await axiosInstance.delete(`/api/users/${id}/avatar`);
   return response.data;
 };

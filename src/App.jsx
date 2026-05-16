@@ -1,11 +1,9 @@
 import { Routes, Route } from "react-router-dom";
 
-// Public Pages
 import WelcomePage from "./pages/welcomepage/Welcomepage";
 import Login from "./pages/login/Login";
 import Register from "./pages/register/Register";
 
-// Protected Pages
 import PatientDashboard from "./pages/patientDashboard/PatientDashboard";
 import DoctorSearch from "./pages/doctorsearch/DoctorSearch";
 import DoctorProfile from "./pages/doctorProfile/DoctorProfile";
@@ -13,18 +11,22 @@ import MyAppointments from "./pages/MyAppointments/MyAppointments";
 import Profile from "./pages/profile/Profile";
 import DoctorDashboard from "./pages/doctorDashboard/DoctorDashboard";
 
-// Security Wrapper
+import AdminDashboard from "./pages/adminDashboard/AdminDashboard";
+import AdminUsers from "./pages/adminUsers/AdminUsers";
+import AdminDoctors from "./pages/adminDoctors/AdminDoctors";
+import AdminSpecialties from "./pages/adminSpecialties/AdminSpecialties";
+import AdminAppointments from "./pages/adminAppointments/AdminAppointments";
+
 import ProtectedRoute from "./routes/ProtectedRoute";
+import AdminRoute from "./routes/AdminRoute";
 
 function App() {
   return (
     <Routes>
-      {/* Public Routes (No login required) */}
       <Route path="/" element={<WelcomePage />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
 
-      {/* Protected Routes (Must have a JWT token to access) */}
       <Route
         path="/patient-dashboard"
         element={
@@ -71,6 +73,47 @@ function App() {
           <ProtectedRoute>
             <MyAppointments />
           </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin"
+        element={
+          <AdminRoute>
+            <AdminDashboard />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/users"
+        element={
+          <AdminRoute>
+            <AdminUsers />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/doctors"
+        element={
+          <AdminRoute>
+            <AdminDoctors />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/specialties"
+        element={
+          <AdminRoute>
+            <AdminSpecialties />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/appointments"
+        element={
+          <AdminRoute>
+            <AdminAppointments />
+          </AdminRoute>
         }
       />
     </Routes>

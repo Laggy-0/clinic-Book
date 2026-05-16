@@ -1,5 +1,28 @@
 @import "tailwindcss";
 
+/* ── Global Premium Defaults (Arabic RTL) ── */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Cairo', 'Tajawal', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: #1e293b;
+  direction: rtl;
+  text-align: right;
+}
+
+* {
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+::selection {
+  background: rgba(37, 99, 235, 0.15);
+  color: #1e40af;
+}
+
 .auth-page-bg {
   background: linear-gradient(120deg, #e0f2fe, #dcfce7);
   position: relative;
@@ -41,6 +64,7 @@
   max-width: 100%;
   min-height: 540px;
   z-index: 1;
+  direction: ltr;
 }
 
 .form-container {
@@ -48,6 +72,7 @@
   top: 0;
   height: 100%;
   transition: all 0.6s ease-in-out;
+  direction: rtl;
 }
 
 .sign-in {
@@ -92,7 +117,7 @@
 }
 
 .overlay {
-  background: linear-gradient(135deg, #34d399, #10b981);
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
   color: #fff;
   position: relative;
   left: -100%;
@@ -144,5 +169,5 @@
 
 .ghost-btn:hover {
   background: white;
-  color: #10b981;
+  color: #2563eb;
 }

@@ -8,10 +8,10 @@ export default function WelcomePage() {
   return (
     <>
       <nav className="h-[80px] bg-white shadow-md flex items-center px-8">
-        <h1 className="text-2xl font-bold">
-          <span className="text-blue-600">Clinic</span>
-          <span className="text-emerald-500">Care</span>
-        </h1>
+        <div className="flex items-center gap-3">
+          <img src="/logo.png" alt="شفاء" style={{ height: 55 }} />
+          <h1 className="text-3xl font-bold text-blue-600">شفاء</h1>
+        </div>
       </nav>
 
       <main className="auth-page-bg min-h-[calc(100vh-80px)] flex items-center justify-center px-4">
@@ -27,24 +27,24 @@ export default function WelcomePage() {
           <div className="overlay-container">
             <div className="overlay">
               <div className="overlay-panel left">
-                <h1 className="text-4xl font-bold mb-5">Welcome Back!</h1>
+                <h1 className="text-4xl font-bold mb-5">أهلاً بعودتك!</h1>
                 <p className="text-lg leading-7">
-                  Login to continue booking your appointments
+                  سجّل دخولك لمتابعة حجز مواعيدك الطبية
                 </p>
 
                 <button className="ghost-btn" onClick={() => setIsSignUp(false)}>
-                  SIGN IN
+                  تسجيل الدخول
                 </button>
               </div>
 
               <div className="overlay-panel right">
-                <h1 className="text-4xl font-bold mb-5">Hello, Friend!</h1>
+                <h1 className="text-4xl font-bold mb-5">مرحباً بك!</h1>
                 <p className="text-lg leading-7">
-                  Enter your personal details and start your journey with us
+                  أدخل بياناتك الشخصية وابدأ رحلتك الصحية معنا
                 </p>
 
                 <button className="ghost-btn" onClick={() => setIsSignUp(true)}>
-                  SIGN UP
+                  إنشاء حساب
                 </button>
               </div>
             </div>
